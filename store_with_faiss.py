@@ -108,11 +108,17 @@ class VectorStore:
 
 if __name__ == "__main__":
 
-    store = VectorStore.build_vector_store_from_documents("data/")
-    store.save("vector_store")
+    VECTOR_STORE_DIR = "vector_store"
 
-    loaded_store = VectorStore.load("vector_store")
+    if os.path.exists(VECTOR_STORE_DIR):
+        # Load existing store (fast, FAISS index loaded automatically)
+        store = VectorStore.load(VECTOR_STORE_DIR)
+    else:
+        # Build new store from documents
+        store = VectorStore.build_vector_store_from_documents("data/")
+        store.save(VECTOR_STORE_DIR)
 
+    loaded_store = VectorStore.load(VECTOR_STORE_DIR)
     query_text = "in what sectors ai is evolving?"
     model = SentenceTransformer("all-MiniLM-L6-v2")
     query_embedding = model.encode([query_text])[0]
