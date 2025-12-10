@@ -3,6 +3,9 @@ from similarity import Similarity
 import numpy as np
 import os
 import json 
+from sentence_transformers import SentenceTransformer
+
+
 class VectorStore:
 
     def __init__(self):
@@ -42,6 +45,7 @@ class VectorStore:
         # return top-K records
         return [record for score, record in scored[:top_k]]
 
+
     @classmethod
     def load(cls, directory):
         vectors_path = os.path.join(directory, "vectors.npy")
@@ -62,20 +66,34 @@ class VectorStore:
 
         print(f"Loaded {len(store.records)} records from {directory}")
         return store
+    def build_vector_store_from_documents(folder_path, chunk_size=500, overlap=50):
+        store=VectorStore()
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+
+        for filename in os.listdir(folder_path):
+            if filename.endswith(".txt"):
+                file_path = os.path.join(folder_path, filename)
+                with open(file_path, "r", encoding="utf-8") as f:
+                    text = f.read()
+                    for i in range(0, len(text), chunk_size - overlap):
+                        chunk = text[i:i + chunk_size]
+                        if chunk:
+                            vector = model.encode(
+                                chunk
+                            )  # Placeholder for actual embedding
+                            record_id = f"{filename}_{i}"
+                            store.add_record(record_id, vector, None, chunk, {"source_file": filename})
+        return store
 
 
 if __name__ == "__main__":
-    store = VectorStore()
-    record1 = VectorRecord(id="1", vector=[0.1, 0.2, 0.3], text="First record", metadata={"category": "A"})
-    record2 = VectorRecord(id="2", vector=[0.4, 0.5, 0.6], text="Second record", metadata={"category": "B"})
 
-    store.add_record(record1.id, record1.vector, None, record1.text, record1.metadata)
-    store.add_record(record2.id, record2.vector, None, record2.text, record2.metadata)
-
-    # store.save("vector_store")
+    store = VectorStore.build_vector_store_from_documents("data/")
+    store.save("vector_store")
     loaded_store = VectorStore.load("vector_store")
-
-    query_vec = [0.1, 0.2, 0.25]
-    results = loaded_store.search(query_vec, top_k=1)
-    for res in results:
-        print(res.id, res.text)
+    query_text = "in what sectors ai is evolving?"
+    query_embedding = SentenceTransformer("all-MiniLM-L6-v2").encode([query_text])[0]
+    results = loaded_store.search(query_embedding, top_k=3)
+    for record in results:
+        print(record.id)
+        print("Found chunk:", record.text)
